@@ -3,6 +3,37 @@
 #include <vector>
 #include <cstring>
 
+typedef struct {
+    unsigned char index;
+    uint8_t hp;
+    unsigned char level;
+    unsigned char status;
+    unsigned char type1;
+    unsigned char type2;
+    unsigned char move1;
+    unsigned char move2;
+    unsigned char move3;
+    unsigned char move4;
+    uint8_t ot_id;
+    uint32_t exp; //only use 3 bytes
+    uint8_t hp_ev;
+    uint8_t atk_ev;
+    uint8_t def_ev;
+    uint8_t spd_ev; //speed
+    uint8_t spe_ev; //special
+    uint8_t iv;
+    unsigned char move1pp;
+    unsigned char move2pp;
+    unsigned char move3pp;
+    unsigned char move4pp;
+    unsigned char level2;
+    uint8_t max_hp;
+    uint8_t atk;
+    uint8_t def;
+    uint8_t spd;
+    uint8_t spe;
+} Pokemon;
+
 void edit(const std::string& filePath) {
     std::fstream saveFile(filePath, std::ios::in | std::ios::out | std::ios::binary);
     if (!saveFile.is_open()) {
@@ -48,7 +79,7 @@ void write_main_checksum(const std::string& filePath){//working
     saveFile.close();
 }
 
-void write_box_checksums(const std::string& filePath){//not working
+void write_box_checksums(const std::string& filePath){
     std::fstream saveFile(filePath, std::ios::in | std::ios::out | std::ios::binary);
     if (!saveFile.is_open()) {
         std::cerr << "Error: Could not open file." << std::endl;
@@ -72,7 +103,61 @@ void write_box_checksums(const std::string& filePath){//not working
         end += 0x462;
         box_checksum_pointer += 1;
     }
+
+    saveFile.seekp(0x7A4C,std::ios_base::beg); // culumative box checksum
+    const char new_checksum_2 = calc_checksum(filePath,0x6000,0x7A4B);
+    saveFile.write(&new_checksum_2,sizeof(new_checksum_2));
+
+
+    start = 0x6000;
+    end = 0x6461;
+    box_checksum_pointer = 0x7A4D;
+    for(int i=0;i<6;i++){
+        printf("%04x %04x\n",start,end);
+        unsigned char box_checksum = calc_checksum(filePath,start,end);
+        saveFile.seekp(box_checksum_pointer,std::ios_base::beg);
+        saveFile.write(reinterpret_cast<const char*>(&box_checksum),sizeof(box_checksum));
+        start += 0x462;
+        end += 0x462;
+        box_checksum_pointer += 1;
+    }
 }
+
+void addPokemonToParty(const std::string& filePath){
+    std::ifstream readFile(filePath, std::ios::in | std::ios::out | std::ios::binary);
+    if (!readFile.is_open()) {
+        std::cerr << "Error: Could not open file." << std::endl;
+        return;
+    }
+    std::ofstream writeFile(filePath, std::ios::in | std::ios::out | std::ios::binary);
+    if (!writeFile.is_open()) {
+        std::cerr << "Error: Could not open file." << std::endl;
+        return;
+    }
+
+    //rewriting number of party pokemon
+    unsigned char byte;
+    readFile.seekg(0x2F2C, std::ios::beg);
+    writeFile.seekp(0x2F2C, std::ios::beg);
+    readFile.read(reinterpret_cast<char*>(&byte), sizeof(byte));
+    if (readFile.gcount() == 0) {
+        std::cerr << "Error: Could not read byte " << std::endl;
+        return;
+    }
+    if(byte<6){
+        byte = byte + 1;
+        writeFile.write(reinterpret_cast<char*>(&byte),sizeof(byte));
+    }
+
+
+}
+
+void editPartyData(const std::string& filePath){
+    std::fstream saveFile(filePath, std::ios::in | std::ios::out | std::ios::binary);
+
+}
+
+
 
 int main(){
     std::string filePath = "save.sav";
