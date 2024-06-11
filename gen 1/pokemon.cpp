@@ -1,5 +1,8 @@
 #include <cstring>
 #include <unordered_map>
+#include <iostream>
+#include <fstream>
+#include <cmath>
 
 
 typedef struct {
@@ -320,3 +323,30 @@ Pokemon initializeBoxPokemon(unsigned char index,
     return moveToId;
  }
 
+uint16_t reverseByteOrder(uint16_t value){
+    //helper function that reverses byte order of two byte values for writing
+    return (value >> 8) | (value << 8);
+}
+
+void extractStatsFromLine(const char *line, char *name, unsigned char *number, unsigned char *index, unsigned char *type1, unsigned char *type2, uint32_t *base_total, unsigned char *hp, unsigned char *attack, unsigned char *defense, unsigned char *speed, unsigned char *special, unsigned char *evolution) {
+    // Helper function for intializePokemonWithname
+    sscanf(line, "%[^,],%hhu,%hhu,%hhu,%hhu,%u,%hhu,%hhu,%hhu,%hhu,%hhu,%hhu", name, number, index, type1, type2, base_total, hp, attack, defense, special, speed, evolution);
+}
+
+unsigned char calcStat(unsigned char base, unsigned char iv, uint16_t ev, unsigned char level){
+    // Helper function for intializePokemonWithname, calculates stat(not hp) based on base stats, levels, and ivs
+    int stat = ((base+iv)*2 + (sqrt(ev)/4)) * level;
+    stat /= 100;
+    stat += 5;
+    return stat;
+
+}
+
+unsigned char calcHP(unsigned char base, unsigned char iv, uint16_t ev, unsigned char level){
+    // Helper function for intializePokemonWithName, calculates hp based on base stats, levels, and ivs
+    int stat = ((base+iv)*2 + (sqrt(ev)/4)) * level;
+    stat /= 100;
+    stat += level;
+    stat += 10;
+    return stat;
+}
