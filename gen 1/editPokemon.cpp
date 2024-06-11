@@ -97,9 +97,69 @@ Pokemon initializePokemonWithName(const char *filename,
     throw std::invalid_argument("Pokemon Not Found");
 }
 
-Pokemon extractPokemonFromFile_Party(const std::string& filePath, Pokemon index)
-    //returns a pokemon struct from reading from save file
+Pokemon extractPokemonFromFile_Party(const std::string& filePath, int index){
+    //returns a pokemon struct from reading from save file, index(1-6)
+    Pokemon p;
+    std::ifstream readFile(filePath, std::ios::in | std::ios::out | std::ios::binary);
+    if (!readFile.is_open()) {
+        throw std::invalid_argument("File Not Found");
+    }
+    index -= 1;
+    readFile.seekg(0x2F2C+8+(0x2c*index), std::ios::beg);//seek to data of pokemon stored in index
+    readFile.read(reinterpret_cast<char*>(&p.index), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.hp), sizeof(unsigned char)*2);
+    readFile.read(reinterpret_cast<char*>(&p.level), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.status), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.type1), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.type2), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.catchrate_holdItems), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.move1), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.move2), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.move3), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.move4), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.ot_id), sizeof(unsigned char)*2);
+    readFile.read(reinterpret_cast<char*>(&p.exp), sizeof(unsigned char)*3);
+    readFile.read(reinterpret_cast<char*>(&p.hp_ev), sizeof(unsigned char)*2);
+    readFile.read(reinterpret_cast<char*>(&p.atk_ev), sizeof(unsigned char)*2);
+    readFile.read(reinterpret_cast<char*>(&p.def_ev), sizeof(unsigned char)*2);
+    readFile.read(reinterpret_cast<char*>(&p.spe_ev), sizeof(unsigned char)*2);
+    readFile.read(reinterpret_cast<char*>(&p.spd_ev), sizeof(unsigned char)*2);
+    readFile.read(reinterpret_cast<char*>(&p.iv), sizeof(unsigned char)*2);
+    readFile.read(reinterpret_cast<char*>(&p.move1pp), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.move2pp), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.move3pp), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.move4pp), sizeof(unsigned char));
+    readFile.read(reinterpret_cast<char*>(&p.max_hp), sizeof(unsigned char)*2);
+    readFile.read(reinterpret_cast<char*>(&p.atk), sizeof(unsigned char)*2);
+    readFile.read(reinterpret_cast<char*>(&p.def), sizeof(unsigned char)*2);
+    readFile.read(reinterpret_cast<char*>(&p.spd), sizeof(unsigned char)*2);
+    readFile.read(reinterpret_cast<char*>(&p.spe), sizeof(unsigned char)*2);
 
+    p.hp=reverseByteOrder(p.hp);
+    p.ot_id=reverseByteOrder(p.ot_id);
+    p.hp_ev=reverseByteOrder(p.hp_ev);
+    p.atk_ev=reverseByteOrder(p.atk_ev);
+    p.def_ev=reverseByteOrder(p.def_ev);
+    p.spe_ev=reverseByteOrder(p.spe_ev);
+    p.iv = reverseByteOrder(p.iv);
+    p.max_hp=reverseByteOrder(p.max_hp);
+    p.atk=reverseByteOrder(p.atk);
+    p.def=reverseByteOrder(p.def);
+    p.spd=reverseByteOrder(p.spd);
+    p.spe=reverseByteOrder(p.spe);
+
+    unsigned char exp[3];
+    exp[2] = p.exp & 0xFF;
+    exp[1] = (p.exp >> 8) & 0xFF;
+    exp[0] = (p.exp >> 16) & 0xFF; 
+    p.exp = (uint32_t)exp[2] << 16 |
+        (uint32_t)exp[1] << 8  |
+        (uint32_t)exp[0];
+    
+    readFile.close();
+    return p;
+
+}
 
 void addPokemonToParty(const std::string& filePath, Pokemon mon){
     std::ifstream readFile(filePath, std::ios::in | std::ios::out | std::ios::binary);
@@ -263,6 +323,9 @@ void removePokemonfromParty(const std::string& filePath,unsigned char index){
     writeFile.write(charbuffer.data(), 11);
     writeFile.seekp(0xB*index,std::ios::cur);//deleting pokemon name
     writeFile.write(charbuffer.data(), 11);
+
+    readFile.close();
+    writeFile.close();
 }
 
 
@@ -276,11 +339,12 @@ int main(){
     // Pokemon bulbasaur = initializePartyPokemon(153,222,100,0,22,3,0,22,0,0,0,17720,1059860,1594,1673,1809,1092,1595,0xFFFF,10,0,0,0,100,222,137,135,167,131);
     Pokemon bulbasaur = initializePokemonWithName(cdataPath,"Bulbasaur",100,"Vine Whip","Mega Drain","None","none",17720,1059860,1594,1673,1809,1092,1595,15,15,15,15,10,10,0,0);
     std::string filePath = "save_deleted - Copy.sav";
-    addPokemonToParty(filePath,bulbasaur);
-    removePokemonfromParty(filePath,6);
+    // addPokemonToParty(filePath,bulbasaur);
+    // removePokemonfromParty(filePath,6);
+    Pokemon bulbasaur2 = extractPokemonFromFile_Party(filePath,5);
+    addPokemonToParty(filePath,bulbasaur2);
     write_main_checksum(filePath);
     write_box_checksums(filePath);
-
     
     return 0;
 }
