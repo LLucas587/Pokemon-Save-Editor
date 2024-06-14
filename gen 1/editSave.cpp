@@ -303,7 +303,7 @@ void replacePokemonInParty(const std::string& filePath, Pokemon mon, int index){
         writeFile.write(reinterpret_cast<char*>(&amount),sizeof(unsigned char));
     } 
 
-    index -= 1 ;
+    index -= 1;
     writeFile.seekp(0x2F2D+index, std::ios::beg);
     writeFile.write(reinterpret_cast<char*>(&(mon.index)),sizeof(unsigned char));
     writeFile.seekp(6-index,std::ios::cur);//seeking past padding and rest of party
@@ -387,7 +387,7 @@ void replacePokemonInParty(const std::string& filePath, Pokemon mon, int index){
 
 void removePokemonfromParty(const std::string& filePath,unsigned char index){
     //remove pokemon from party(index 1-6)
-    //use alone only if index 6
+    //use alone only if last index in party
     std::ifstream readFile(filePath, std::ios::in | std::ios::out | std::ios::binary);
     if (!readFile.is_open()) {
         std::cerr << "Error: Could not open file." << std::endl;
@@ -430,7 +430,6 @@ void removePokemonfromParty(const std::string& filePath,unsigned char index){
 
     writeFile.seekp(index*0x2C,std::ios::cur);
     writeFile.write(zerobuffer.data(), zerobuffer.size());//deleting party data
-    readFile.seekg(0x303C,std::ios::beg);
     writeFile.seekp(0xB*index,std::ios::cur);//deleting trainer name
     writeFile.write(charbuffer.data(), 11);
     writeFile.seekp(0xB*index,std::ios::cur);//deleting pokemon name
@@ -568,6 +567,9 @@ void addPokemonToBox(const std::string& filePath, Pokemon mon, int box){
         readFile.seekg(0x30C0, std::ios::beg);
         writeFile.seekp(0x30C0, std::ios::beg);
     }
+    else{
+        return;
+    }
 
     readFile.read(reinterpret_cast<char*>(&byte), sizeof(byte));
     if (readFile.gcount() == 0) {
@@ -628,18 +630,321 @@ void addPokemonToBox(const std::string& filePath, Pokemon mon, int box){
     writeFile.close();
 }
 
+void removePokemonfromBox(const std::string& filePath,unsigned char index,int box){
+    //remove pokemon from index specified by box
+    std::ifstream readFile(filePath, std::ios::in | std::ios::out | std::ios::binary);
+    if (!readFile.is_open()) {
+        std::cerr << "Error: Could not open file." << std::endl;
+        return;
+    }
+    std::ofstream writeFile(filePath, std::ios::in | std::ios::out | std::ios::binary);
+    if (!writeFile.is_open()) {
+        std::cerr << "Error: Could not open file." << std::endl;
+        return;
+    }
+
+    unsigned char byte;
+    int indexBox;
+    if(box <= 6 && box > 0){
+        indexBox = box - 1;
+        readFile.seekg(0x4000+0x462*indexBox, std::ios::beg);
+        writeFile.seekp(0x4000+0x462*indexBox, std::ios::beg);
+    }
+    else if(box > 6 && box <=12){
+        indexBox = box - 7;
+        readFile.seekg(0x6000+0x462*indexBox, std::ios::beg);
+        writeFile.seekp(0x6000+0x462*indexBox, std::ios::beg);
+    }
+    else{
+        std::cerr << "Error: Box Index out of Bounds" << std::endl;
+        return;
+    }
+
+    readFile.read(reinterpret_cast<char*>(&byte), sizeof(byte));
+    if (readFile.gcount() == 0) {
+        std::cerr << "Error: Could not read byte " << std::endl;
+        return;
+    }
+
+    if(byte <= 20 && byte > 1){
+        unsigned char amount = byte - 1;
+        writeFile.write(reinterpret_cast<char*>(&amount),sizeof(byte));
+    }
+
+    index = index-1;
+    writeFile.seekp(index,std::ios::cur);
+    unsigned char max = 0xFF;
+    writeFile.write(reinterpret_cast<char*>(&max),sizeof(byte));
+    writeFile.seekp(1,std::ios::cur);//seeking past padding
+
+    std::vector<char> zerobuffer(0x2C, 0);
+    std::vector<char> charbuffer(11, 0x50);
+
+    writeFile.seekp(index*0x21,std::ios::cur);
+    writeFile.write(zerobuffer.data(), zerobuffer.size());//deleting party data
+    writeFile.seekp(0xB*index,std::ios::cur);
+    writeFile.write(charbuffer.data(), 11);//deleting trainer name
+    writeFile.seekp(0xB*index,std::ios::cur);
+    writeFile.write(charbuffer.data(), 11);//deleting pokemon name
+
+    //current box logic
+
+    readFile.seekg(0x284C,std::ios::beg);
+    uint8_t current;
+    readFile.read(reinterpret_cast<char*>(&current),1);
+    uint8_t first7bits = current & 0x7F;
+
+    if(first7bits==(box-1)){
+        readFile.seekg(0x30C0, std::ios::beg);
+        writeFile.seekp(0x30C0, std::ios::beg);
+    }
+    else{
+        return;
+    }
+
+    readFile.read(reinterpret_cast<char*>(&byte), sizeof(byte));
+    if (readFile.gcount() == 0) {
+        std::cerr << "Error: Could not read byte " << std::endl;
+        return;
+    }
+
+    if(byte <= 20 && byte > 1){
+        unsigned char amount = byte - 1;
+        writeFile.write(reinterpret_cast<char*>(&amount),sizeof(byte));
+    }
+    else{
+         std::cerr << "Error: Index out of Bounds" << std::endl;
+         return;
+    }   
+
+    writeFile.seekp(index,std::ios::cur);
+    writeFile.write(reinterpret_cast<char*>(&max),sizeof(byte));
+    writeFile.seekp(1,std::ios::cur);//seeking past padding
+
+    writeFile.seekp(index*0x21,std::ios::cur);
+    writeFile.write(zerobuffer.data(), zerobuffer.size());//deleting party data
+    writeFile.seekp(0xB*index,std::ios::cur);
+    writeFile.write(charbuffer.data(), 11);//deleting trainer name
+    writeFile.seekp(0xB*index,std::ios::cur);
+    writeFile.write(charbuffer.data(), 11);//deleting pokemon name
+
+    readFile.close();
+    writeFile.close();
+}
+
+void replacePokemonInBox(const std::string& filePath, Pokemon mon, int index, int box){
+    //replaces pokemon in box in specified box(1-12) and index(1-20)
+    std::ofstream writeFile(filePath, std::ios::in | std::ios::out | std::ios::binary);
+    if (!writeFile.is_open()) {
+        std::cerr << "Error: Could not open file." << std::endl;
+        return;
+    }
+    std::ifstream readFile(filePath, std::ios::in | std::ios::out | std::ios::binary);
+    if (!readFile.is_open()) {
+        std::cerr << "Error: Could not open file." << std::endl;
+        return;
+    }
+    if(box <= 6 && box > 0){
+        readFile.seekg(0x4000+0x462*(box-1), std::ios::beg);
+        writeFile.seekp(0x4000+0x462*(box-1), std::ios::beg);
+    }
+    else if(box > 6 && box <=12){
+        readFile.seekg(0x6000+0x462*(box-7), std::ios::beg);
+        writeFile.seekp(0x6000+0x462*(box-7), std::ios::beg);
+    }
+    else{
+        std::cerr << "Error: Invalid Box Number" << std::endl;
+        return;
+    }
+
+    unsigned char byte;
+    readFile.read(reinterpret_cast<char*>(&byte), sizeof(byte));
+    if (readFile.gcount() == 0) {
+        std::cerr << "Error: Could not read byte " << std::endl;
+        return;
+    }
+    if((index-byte)>=2){//preventing creating empty party space and out of bound writes
+        std::cerr << "Error: Invalid Index" << std::endl;
+        return;
+    }
+    if(index-byte==1){//if adding to end of party(adding to empty space)
+        unsigned char amount = byte + 1;
+        writeFile.write(reinterpret_cast<char*>(&amount),sizeof(unsigned char));
+    } 
+    else{
+        writeFile.seekp(1,std::ios::cur);
+    }
+
+    index -= 1;
+    writeFile.seekp(index,std::ios::cur);
+    writeFile.write(reinterpret_cast<char*>(&(mon.index)),sizeof(unsigned char));
+    writeFile.seekp(20-index,std::ios::cur);//seeking past padding and rest of party
+    writeFile.seekp(index*0x21,std::ios::cur);//seeking past other pokemon entries
+
+    //changing exp to 3 bytes
+    unsigned char exp[3];
+    exp[2] = mon.exp & 0xFF;
+    exp[1] = (mon.exp >> 8) & 0xFF;
+    exp[0] = (mon.exp >> 16) & 0xFF; 
+
+    //reversing byte order for writing to file
+    mon.hp = reverseByteOrder(mon.hp);
+    mon.ot_id = reverseByteOrder(mon.ot_id);
+    mon.hp_ev = reverseByteOrder(mon.hp_ev);
+    mon.atk_ev = reverseByteOrder(mon.atk_ev);
+    mon.def_ev = reverseByteOrder(mon.def_ev);
+    mon.spd_ev = reverseByteOrder(mon.spd_ev);
+    mon.spe_ev = reverseByteOrder(mon.spe_ev);
+    mon.iv = reverseByteOrder(mon.iv);
+    mon.max_hp = reverseByteOrder(mon.max_hp);
+    mon.atk = reverseByteOrder(mon.atk);
+    mon.def = reverseByteOrder(mon.def);
+    mon.spd = reverseByteOrder(mon.spd);
+    mon.spe = reverseByteOrder(mon.spe);
+
+    //writing pokemon stats
+    writeFile.write(reinterpret_cast<char*>(&(mon.index)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.hp)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.level)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.status)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.type1)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.type2)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.catchrate_holdItems)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move1)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move2)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move3)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move4)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.ot_id)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(exp)),sizeof(unsigned char)*3);
+    writeFile.write(reinterpret_cast<char*>(&(mon.hp_ev)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.atk_ev)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.def_ev)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.spd_ev)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.spe_ev)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.iv)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.move1pp)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move2pp)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move3pp)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move4pp)),sizeof(unsigned char));
+
+    readFile.seekg(0x2598,std::ios::beg);//seeking to trainer name
+    char name[11];
+    readFile.read(reinterpret_cast<char*>(&name),11);
+
+    if(box <= 6 && box > 0){
+        writeFile.seekp(0x4000+0x462*(box-1)+0x2AA+0xB*index, std::ios::beg);
+    }
+    else if(box > 6 && box <=12){
+        writeFile.seekp(0x6000+0x462*(box-7)+0x2AA+0xB*index, std::ios::beg);
+    }
+    writeFile.write(reinterpret_cast<char*>(&name),11);
+
+    if(box <= 6 && box > 0){
+        writeFile.seekp(0x4000+0x462*(box-1)+0x386+0xB*index, std::ios::beg);
+    }
+    else if(box > 6 && box <=12){
+        writeFile.seekp(0x6000+0x462*(box-7)+0x386+0xB*index, std::ios::beg);
+    }
+
+    unsigned char nickname = 0x80;
+    writeFile.write(reinterpret_cast<char*>(&nickname),1);
+    unsigned char end = 0x50;
+    for(int i=0;i<10;i++){
+        writeFile.write(reinterpret_cast<char*>(&end),1);
+    }
+
+    //checking if current box
+    readFile.seekg(0x284C,std::ios::beg);
+    uint8_t current;
+    readFile.read(reinterpret_cast<char*>(&current),1);
+    uint8_t first7bits = current & 0x7F;
+    
+
+    if(first7bits==(box-1)){
+        readFile.seekg(0x30C0, std::ios::beg);
+        writeFile.seekp(0x30C0, std::ios::beg);
+    }
+    else{
+        return;
+    }
+
+    readFile.read(reinterpret_cast<char*>(&byte), sizeof(byte));
+    if (readFile.gcount() == 0) {
+        std::cerr << "Error: Could not read byte " << std::endl;
+        return;
+    }
+        if((index-byte)>=2){//preventing creating empty party space and out of bound writes
+        std::cerr << "Error: Invalid Index" << std::endl;
+        return;
+    }
+    if(index-byte==1){//if adding to end of party(adding to empty space)
+        unsigned char amount = byte + 1;
+        writeFile.write(reinterpret_cast<char*>(&amount),sizeof(unsigned char));
+    } 
+    else{
+        writeFile.seekp(1,std::ios::cur);
+    }
+
+    writeFile.seekp(index,std::ios::cur);
+    writeFile.write(reinterpret_cast<char*>(&(mon.index)),sizeof(unsigned char));
+    writeFile.seekp(20-index,std::ios::cur);//seeking past padding and rest of party
+    writeFile.seekp(index*0x21,std::ios::cur);//seeking past other pokemon entries
+
+    //writing pokemon stats
+    writeFile.write(reinterpret_cast<char*>(&(mon.index)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.hp)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.level)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.status)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.type1)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.type2)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.catchrate_holdItems)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move1)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move2)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move3)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move4)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.ot_id)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(exp)),sizeof(unsigned char)*3);
+    writeFile.write(reinterpret_cast<char*>(&(mon.hp_ev)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.atk_ev)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.def_ev)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.spd_ev)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.spe_ev)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.iv)),sizeof(unsigned char)*2);
+    writeFile.write(reinterpret_cast<char*>(&(mon.move1pp)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move2pp)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move3pp)),sizeof(unsigned char));
+    writeFile.write(reinterpret_cast<char*>(&(mon.move4pp)),sizeof(unsigned char));
+
+    readFile.seekg(0x2598,std::ios::beg);//seeking to trainer name
+    readFile.read(reinterpret_cast<char*>(&name),11);
+    writeFile.seekp(0x30C0+0x2AA+0xB*index, std::ios::beg);
+    writeFile.write(reinterpret_cast<char*>(&name),11);//writing trainer name
+    writeFile.seekp(0x30C0+0x386+0xB*index, std::ios::beg);
+    writeFile.write(reinterpret_cast<char*>(&nickname),1);//writing pokemon nickname as "A"
+    for(int i=0;i<10;i++){
+        writeFile.write(reinterpret_cast<char*>(&end),1);
+    }
+
+    readFile.close();
+    writeFile.close();
+}
+
 int main(){
     std::string dataPath = "FirstGenPokemon.csv";
     const char* cdataPath = dataPath.c_str();
     // Pokemon bulbasaur = initializePartyPokemon(153,222,100,0,22,3,0,22,0,0,0,17720,1059860,1594,1673,1809,1092,1595,0xFFFF,10,0,0,0,100,222,137,135,167,131);
     Pokemon bulbasaur = initializePokemonWithName(cdataPath,"Bulbasaur",100,"Vine Whip","Mega Drain","None","none",17720,1059860,1594,1673,1809,1092,1595,15,15,15,15,10,10,0,0);
     std::string filePath = "save_deleted - Copy.sav";
-    // addPokemonToParty(filePath,bulbasaur);
-    // removePokemonfromParty(filePath,6);
+    //addPokemonToParty(filePath,bulbasaur);
+    //removePokemonfromParty(filePath,6);
     Pokemon bulbasaur2 = extractPokemonFromFile_Party(filePath,5);
-    replacePokemonInParty(filePath,bulbasaur2,1);
-    addPokemonToBox(filePath,bulbasaur2,1);
-    addPokemonToBox(filePath,bulbasaur2,12);
+    //replacePokemonInParty(filePath,bulbasaur2,1);
+    //addPokemonToBox(filePath,bulbasaur2,1);
+    //addPokemonToBox(filePath,bulbasaur2,12);
+    //removePokemonfromBox(filePath,20,2);
+    //removePokemonfromBox(filePath,2,12);
+    replacePokemonInBox(filePath,bulbasaur,6,4);
+    replacePokemonInBox(filePath,bulbasaur,2,12);
     write_main_checksum(filePath);
     write_box_checksums(filePath);
     
